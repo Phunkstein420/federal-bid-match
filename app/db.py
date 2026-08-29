@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import socket
 from collections.abc import Sequence
 from datetime import date, datetime, timezone
@@ -18,6 +19,9 @@ from app.constants import WINDOW_DAYS
 
 log = logging.getLogger(__name__)
 
+# Dotted-quad only. DNS names must never be passed to IP-literal parsers.
+_IPV4_DOTTED = re.compile(r"\A\d{1,3}(?:\.\d{1,3}){3}\Z")
+
 
 def _hostname_from_url(database_url: str) -> str | None:
     """Host only. Never log or return userinfo."""
@@ -26,21 +30,37 @@ def _hostname_from_url(database_url: str) -> str | None:
     return urlparse(database_url).hostname
 
 
+def _as_ipv4_literal(host: str) -> str | None:
+    """Parse a dotted IPv4 literal. Hostnames return None (no exception)."""
+    if not host or not _IPV4_DOTTED.fullmatch(host):
+        return None
+    try:
+        socket.inet_pton(socket.AF_INET, host)
+    except OSError:
+        return None
+    return host
+
+
+def _is_ipv6_literal(host: str) -> bool:
+    if not host or ":" not in host:
+        return False
+    try:
+        socket.inet_pton(socket.AF_INET6, host.strip("[]"))
+    except OSError:
+        return False
+    return True
+
+
 def resolve_ipv4_hostaddr(host: str) -> str | None:
-    """Return an A-record (or IPv4 literal). None if the name is IPv6-only."""
+    """A-record or IPv4 literal. IPv6-only names return None (no exception)."""
     if not host:
         return None
     literal = host.strip("[]")
-    try:
-        socket.inet_pton(socket.AF_INET, literal)
-        return literal
-    except OSError:
-        pass
-    try:
-        socket.inet_pton(socket.AF_INET6, literal)
+    ipv4 = _as_ipv4_literal(literal)
+    if ipv4:
+        return ipv4
+    if _is_ipv6_literal(literal):
         return None
-    except OSError:
-        pass
     try:
         answers = socket.getaddrinfo(
             host,
@@ -48,7 +68,7 @@ def resolve_ipv4_hostaddr(host: str) -> str | None:
             family=socket.AF_INET,
             type=socket.SOCK_STREAM,
         )
-    except socket.gaierror:
+    except OSError:
         return None
     for family, _type, _proto, _canon, sockaddr in answers:
         if family == socket.AF_INET and sockaddr and sockaddr[0]:
@@ -57,14 +77,22 @@ def resolve_ipv4_hostaddr(host: str) -> str | None:
 
 
 def ipv4_connect_params(database_url: str) -> dict[str, str]:
-    """libpq hostaddr when an IPv4 address exists. Does not rewrite the URI."""
-    host = _hostname_from_url(database_url)
-    if not host:
+    """
+    libpq hostaddr when an IPv4 address exists.
+
+    Does not rewrite the URI. Does not raise on DNS hostnames (including
+    IPv6-only names). Never treats a hostname as an IP literal.
+    """
+    try:
+        host = _hostname_from_url(database_url)
+        if not host:
+            return {}
+        ipv4 = resolve_ipv4_hostaddr(host)
+        if not ipv4:
+            return {}
+        return {"hostaddr": ipv4}
+    except Exception:
         return {}
-    ipv4 = resolve_ipv4_hostaddr(host)
-    if not ipv4:
-        return {}
-    return {"hostaddr": ipv4}
 
 
 def connect(database_url: str) -> psycopg.Connection:
