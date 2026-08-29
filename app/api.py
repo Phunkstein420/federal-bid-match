@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from typing import Annotated, Any
 
@@ -14,6 +15,9 @@ import psycopg
 from app.config import MissingEnvError, Settings
 from app.constants import DEFAULT_NAICS, DEFAULT_SET_ASIDE_CODE
 from app.query import query_notices
+from app.redact import exception_log_name, redact_db_error_text
+
+log = logging.getLogger(__name__)
 
 app = FastAPI(title="federal-bid-match", version="0.1.0")
 
@@ -50,6 +54,11 @@ def get_notices(
         )
     except MissingEnvError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except (psycopg.Error, OSError):
+    except (psycopg.Error, OSError) as exc:
+        log.warning(
+            "%s: %s",
+            exception_log_name(exc),
+            redact_db_error_text(str(exc)),
+        )
         raise HTTPException(status_code=503, detail="database unavailable") from None
     return JSONResponse(content=jsonable_encoder(rows))
