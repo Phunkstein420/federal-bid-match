@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import inspect
 import socket
 from typing import Any
 
 import pytest
 
+import app.db as db_mod
 from app.db import connect, ipv4_connect_params, resolve_ipv4_hostaddr
 
 DIRECT_URL = "postgresql://user:pass@db.example.invalid:5432/postgres"
@@ -130,3 +132,30 @@ def test_ipv4_helpers_do_not_embed_userinfo() -> None:
     dumped = repr(params)
     assert "super-secret" not in dumped
     assert "user" not in dumped
+
+
+def test_dns_hostname_does_not_raise_valueerror(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: hostnames are not IP literals; IPv6-only names return {}."""
+    url = "postgres://user@db.example.supabase.co:5432/postgres"
+
+    def ipv6_only(*_args: Any, **_kwargs: Any):
+        raise socket.gaierror(socket.EAI_NONAME, "no A records")
+
+    monkeypatch.setattr(socket, "getaddrinfo", ipv6_only)
+    params = ipv4_connect_params(url)
+    assert params == {}
+
+
+def test_ipv6_only_name_returns_empty_params(monkeypatch: pytest.MonkeyPatch) -> None:
+    def no_a_records(*_args: Any, **_kwargs: Any):
+        raise socket.gaierror(socket.EAI_ADDRFAMILY, "no A records")
+
+    monkeypatch.setattr(socket, "getaddrinfo", no_a_records)
+    assert resolve_ipv4_hostaddr("db.example.supabase.co") is None
+    assert ipv4_connect_params("postgres://user@db.example.supabase.co:5432/postgres") == {}
+
+
+def test_module_never_calls_ipaddress_on_hosts() -> None:
+    source = inspect.getsource(db_mod)
+    assert "import ipaddress" not in source
+    assert "ipaddress.ip_address" not in source
