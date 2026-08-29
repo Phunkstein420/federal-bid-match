@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Test
+        run: pytest
+        env:
+          # Names only. Do not inject secret values in CI.
+          DATABASE_URL: ""
+          API_KEY: ""
+          SAM_API_KEY: ""
