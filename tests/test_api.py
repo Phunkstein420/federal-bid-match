@@ -10,6 +10,20 @@ from app.api import app
 client = TestClient(app)
 
 
+def test_root_is_public() -> None:
+    response = client.get("/")
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {
+        "name": "federal-bid-match",
+        "health": "/health",
+        "notices": "/notices requires X-Api-Key",
+    }
+    assert "DATABASE_URL" not in response.text
+    assert "SAM_API_KEY" not in response.text
+    assert "=" not in response.text
+
+
 def test_health_is_public() -> None:
     response = client.get("/health")
     assert response.status_code == 200

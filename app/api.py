@@ -31,6 +31,15 @@ def _require_api_key(provided: str | None, expected: str | None) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "name": "federal-bid-match",
+        "health": "/health",
+        "notices": "/notices requires X-Api-Key",
+    }
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
