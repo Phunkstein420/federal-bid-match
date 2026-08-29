@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+import socket
 from collections.abc import Sequence
 from datetime import date, datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID
 
 import psycopg
@@ -15,6 +17,70 @@ from psycopg.types.json import Jsonb
 from app.constants import WINDOW_DAYS
 
 log = logging.getLogger(__name__)
+
+
+def _hostname_from_url(database_url: str) -> str | None:
+    """Host only. Never log or return userinfo."""
+    if "://" not in database_url:
+        return None
+    return urlparse(database_url).hostname
+
+
+def resolve_ipv4_hostaddr(host: str) -> str | None:
+    """Return an A-record (or IPv4 literal). None if the name is IPv6-only."""
+    if not host:
+        return None
+    literal = host.strip("[]")
+    try:
+        socket.inet_pton(socket.AF_INET, literal)
+        return literal
+    except OSError:
+        pass
+    try:
+        socket.inet_pton(socket.AF_INET6, literal)
+        return None
+    except OSError:
+        pass
+    try:
+        answers = socket.getaddrinfo(
+            host,
+            None,
+            family=socket.AF_INET,
+            type=socket.SOCK_STREAM,
+        )
+    except socket.gaierror:
+        return None
+    for family, _type, _proto, _canon, sockaddr in answers:
+        if family == socket.AF_INET and sockaddr and sockaddr[0]:
+            return sockaddr[0]
+    return None
+
+
+def ipv4_connect_params(database_url: str) -> dict[str, str]:
+    """libpq hostaddr when an IPv4 address exists. Does not rewrite the URI."""
+    host = _hostname_from_url(database_url)
+    if not host:
+        return {}
+    ipv4 = resolve_ipv4_hostaddr(host)
+    if not ipv4:
+        return {}
+    return {"hostaddr": ipv4}
+
+
+def connect(database_url: str) -> psycopg.Connection:
+    """
+    Connect using DATABASE_URL as given (direct :5432 or pooler :6543).
+
+    Prefers IPv4 via hostaddr so IPv4-only networks (e.g. Render) do not
+    attempt an unreachable AAAA. Does not rewrite, log, or print the URI.
+    """
+    return psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+        prepare_threshold=None,
+        **ipv4_connect_params(database_url),
+    )
+
 
 NOTICE_COLUMNS = (
     "notice_id",
@@ -120,10 +186,6 @@ FROM ranked
 WHERE rn = 1
 ORDER BY posted_date DESC NULLS LAST, collected_at DESC
 """
-
-
-def connect(database_url: str) -> psycopg.Connection:
-    return psycopg.connect(database_url, row_factory=dict_row)
 
 
 def _bind_notice(notice: dict[str, Any]) -> dict[str, Any]:

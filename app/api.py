@@ -9,6 +9,8 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
+import psycopg
+
 from app.config import MissingEnvError, Settings
 from app.constants import DEFAULT_NAICS, DEFAULT_SET_ASIDE_CODE
 from app.query import query_notices
@@ -48,4 +50,6 @@ def get_notices(
         )
     except MissingEnvError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (psycopg.Error, OSError):
+        raise HTTPException(status_code=503, detail="database unavailable") from None
     return JSONResponse(content=jsonable_encoder(rows))

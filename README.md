@@ -53,7 +53,7 @@ Copy `.env.example` to `.env` and set values locally. Do not put real values in 
 
 | Name | Required | Used by |
 |------|----------|---------|
-| `DATABASE_URL` | Ingest and query | Postgres connection to existing tables |
+| `DATABASE_URL` | Ingest and query | Postgres URI as-is: direct host `:5432` or pooler host `:6543`. Connections prefer IPv4 (`hostaddr` / A records) and do not rewrite the URI. |
 | `API_KEY` | Query HTTP API | `X-Api-Key` on `GET /notices` |
 | `SAM_API_KEY` | No | Optional GSA API only; unused by CSV ingest |
 
