@@ -31,7 +31,8 @@ REQUIRED_HOMEPAGE_PHRASES = (
     "We are not affiliated with GSA, SAM.gov, or SBA",
     "541511",
     "Douglas Magnuson",
-    "Checkout link coming",
+    "Subscribe / $99 month checkout",
+    "https://buy.stripe.com/14A28r1Khch97A74EOb3q00",
 )
 
 FORBIDDEN_HOMEPAGE_PHRASES = (
@@ -56,7 +57,9 @@ def test_root_serves_html_to_browsers() -> None:
         assert phrase not in body
     assert "<img" not in body.lower()
     assert "href=\"#\"" not in body
-    assert "Buy" not in body
+    assert "Checkout link coming" not in body
+    assert body.count("https://buy.stripe.com/14A28r1Khch97A74EOb3q00") == 1
+    assert body.count("buy.stripe.com") == 1
 
 
 def test_root_serves_html_by_default() -> None:
