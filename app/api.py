@@ -45,8 +45,8 @@ def _wants_json(accept: str | None) -> bool:
     return "application/json" in value and "text/html" not in value
 
 
-@app.get("/")
-def root(request: Request) -> FileResponse | JSONResponse:
+@app.get("/", response_model=None)
+def root(request: Request):
     if _wants_json(request.headers.get("accept")):
         return JSONResponse(ROOT_JSON)
     return FileResponse(HOMEPAGE_PATH, media_type="text/html; charset=utf-8")
