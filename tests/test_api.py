@@ -10,11 +10,67 @@ from app.api import app
 client = TestClient(app)
 
 
-def test_root_is_public() -> None:
+BROWSER_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+
+REQUIRED_HOMEPAGE_PHRASES = (
+    "Federal Bid Match",
+    "$99",
+    "per month",
+    "Recurring",
+    "SAM.gov",
+    "NAICS",
+    "8(a)",
+    "WOSB",
+    "HUBZone",
+    "SDVOSB",
+    "small business",
+    "Official notice links only",
+    "source of truth",
+    "We do not guarantee completeness",
+    "We do not write proposals",
+    "We are not affiliated with GSA, SAM.gov, or SBA",
+    "541511",
+    "Douglas Magnuson",
+    "Checkout link coming",
+)
+
+FORBIDDEN_HOMEPAGE_PHRASES = (
+    "Apex Data Systems",
+    "RapidAPI",
+    "occupancy",
+    "LLC",
+    "DATABASE_URL",
+    "SAM_API_KEY",
+    "API_KEY",
+)
+
+
+def test_root_serves_html_to_browsers() -> None:
+    response = client.get("/", headers={"Accept": BROWSER_ACCEPT})
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    body = response.text
+    for phrase in REQUIRED_HOMEPAGE_PHRASES:
+        assert phrase in body
+    for phrase in FORBIDDEN_HOMEPAGE_PHRASES:
+        assert phrase not in body
+    assert "<img" not in body.lower()
+    assert "href=\"#\"" not in body
+    assert "Buy" not in body
+
+
+def test_root_serves_html_by_default() -> None:
     response = client.get("/")
     assert response.status_code == 200
-    body = response.json()
-    assert body == {
+    assert "text/html" in response.headers["content-type"]
+    assert "Federal Bid Match" in response.text
+    assert "Douglas Magnuson" in response.text
+
+
+def test_root_json_for_api_clients() -> None:
+    response = client.get("/", headers={"Accept": "application/json"})
+    assert response.status_code == 200
+    assert response.json() == {
         "name": "federal-bid-match",
         "health": "/health",
         "notices": "/notices requires X-Api-Key",

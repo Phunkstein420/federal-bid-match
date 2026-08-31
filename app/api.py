@@ -1,14 +1,15 @@
-"""Minimal FastAPI query path. /health is public; /notices requires X-Api-Key."""
+"""Minimal FastAPI query path. / is the public product page; /health is public; /notices requires X-Api-Key."""
 
 from __future__ import annotations
 
 import logging
 import secrets
+from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 import psycopg
 
@@ -21,6 +22,13 @@ log = logging.getLogger(__name__)
 
 app = FastAPI(title="federal-bid-match", version="0.1.0")
 
+HOMEPAGE_PATH = Path(__file__).resolve().parent / "static" / "index.html"
+ROOT_JSON = {
+    "name": "federal-bid-match",
+    "health": "/health",
+    "notices": "/notices requires X-Api-Key",
+}
+
 
 def _settings() -> Settings:
     return Settings.from_env()
@@ -31,13 +39,17 @@ def _require_api_key(provided: str | None, expected: str | None) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-@app.get("/")
-def root() -> dict[str, str]:
-    return {
-        "name": "federal-bid-match",
-        "health": "/health",
-        "notices": "/notices requires X-Api-Key",
-    }
+def _wants_json(accept: str | None) -> bool:
+    """API clients that ask for JSON without HTML. Browsers send text/html."""
+    value = (accept or "").lower()
+    return "application/json" in value and "text/html" not in value
+
+
+@app.get("/", response_model=None)
+def root(request: Request):
+    if _wants_json(request.headers.get("accept")):
+        return JSONResponse(ROOT_JSON)
+    return FileResponse(HOMEPAGE_PATH, media_type="text/html; charset=utf-8")
 
 
 @app.get("/health")
