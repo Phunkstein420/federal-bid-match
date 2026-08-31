@@ -102,16 +102,24 @@
 
     .checkout {
       background: var(--card);
-      border: 1px dashed var(--line);
+      border: 1px solid var(--line);
       border-radius: 6px;
       padding: 1rem 1.1rem;
-      color: var(--muted);
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       font-size: 0.95rem;
     }
 
     .checkout p {
-      margin: 0;
+      margin: 0 0 0.55rem;
+    }
+
+    .checkout p:last-child {
+      margin-bottom: 0;
+    }
+
+    .checkout a {
+      color: var(--accent);
+      font-weight: 650;
     }
 
     footer {
@@ -195,7 +203,7 @@
     <section>
       <h2>Subscribe</h2>
       <div class="checkout">
-        <p>Checkout link coming</p>
+        <p><a href="https://buy.stripe.com/14A28r1Khch97A74EOb3q00">Subscribe / $99 month checkout</a></p>
       </div>
     </section>
 
