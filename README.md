@@ -57,7 +57,7 @@ Copy `.env.example` to `.env` and set values locally. Do not put real values in 
 | `API_KEY` | Query HTTP API | `X-Api-Key` on `GET /notices` |
 | `SAM_API_KEY` | No | Optional GSA API only; unused by CSV ingest |
 
-`/health` stays public. `GET /notices` requires `X-Api-Key` matching `API_KEY`.
+`GET /` is the public product page (HTML). Send `Accept: application/json` for the small API index. `/health` stays public. `GET /notices` requires `X-Api-Key` matching `API_KEY`.
 
 ## Install
 
