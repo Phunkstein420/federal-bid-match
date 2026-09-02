@@ -11,6 +11,8 @@ from datetime import date, datetime, timezone
 from typing import Any, BinaryIO, TextIO
 
 from app.constants import (
+    DEFAULT_NAICS,
+    DEFAULT_SET_ASIDE_CODE,
     INGEST_NOTICE_TYPES,
     OFFICIAL_NOTICE_URL_TEMPLATE,
     TYPE_NAME_TO_CODE,
@@ -40,6 +42,16 @@ def notice_type_code(raw: str | None) -> str | None:
 def is_ingest_type(raw: str | None) -> bool:
     code = notice_type_code(raw)
     return code in INGEST_NOTICE_TYPES
+
+
+def matches_ingest_naics_and_set_aside(
+    naics_code: str | None,
+    set_aside_code: str | None,
+) -> bool:
+    """Production ingest slice: NAICS 541511 and set-aside SBA only."""
+    naics = (naics_code or "").strip()
+    set_aside = (set_aside_code or "").strip().upper()
+    return naics == DEFAULT_NAICS and set_aside == DEFAULT_SET_ASIDE_CODE
 
 
 def blank_to_none(value: Any) -> str | None:
@@ -122,6 +134,10 @@ def row_to_notice(
     notice_type = notice_type_code(row.get("Type"))
     if notice_type not in INGEST_NOTICE_TYPES:
         return None
+    naics_code = blank_to_none(row.get("NaicsCode"))
+    set_aside_code = blank_to_none(row.get("SetASideCode"))
+    if not matches_ingest_naics_and_set_aside(naics_code, set_aside_code):
+        return None
 
     description_url = blank_to_none(row.get("AdditionalInfoLink"))
     links = resource_links_from_row(row)
@@ -133,9 +149,9 @@ def row_to_notice(
         "notice_type": notice_type,
         "posted_date": parse_posted_date(row.get("PostedDate")),
         "response_deadline": parse_deadline(row.get("ResponseDeadLine")),
-        "naics_code": blank_to_none(row.get("NaicsCode")),
+        "naics_code": naics_code,
         "set_aside": blank_to_none(row.get("SetASide")),
-        "set_aside_code": blank_to_none(row.get("SetASideCode")),
+        "set_aside_code": set_aside_code,
         "classification_code": blank_to_none(row.get("ClassificationCode")),
         "agency_path": agency_path_from_row(row),
         "pop_city": blank_to_none(row.get("PopCity")),

@@ -1,4 +1,4 @@
-"""Download the public SAM.gov Contract Opportunities CSV and upsert o/k/p/r notices."""
+"""Download the public SAM.gov CSV and upsert o/k/p/r NAICS 541511 SBA notices."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from app.parse import iter_notices_from_csv, text_stream_from_binary
 log = logging.getLogger(__name__)
 
 DEFAULT_BATCH_SIZE = 500
-INGEST_NOTES = "csv ingest types o/k/p/r; upsert on notice_id"
+INGEST_NOTES = "csv ingest types o/k/p/r NAICS 541511 SBA; upsert on notice_id"
 
 
 def run_ingest(
@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Download the public SAM.gov Contract Opportunities CSV and upsert "
-            "Solicitation / Combined Synopsis / Presolicitation / Sources Sought notices."
+            "o/k/p/r notices with NAICS 541511 and set-aside SBA."
         )
     )
     parser.add_argument(
