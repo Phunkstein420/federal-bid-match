@@ -2,7 +2,7 @@
 
 Daily collector for **public** U.S. federal contract opportunities published by SAM.gov Data Services.
 
-It downloads the official Contract Opportunities CSV, upserts Solicitation / Combined Synopsis / Presolicitation / Sources Sought notices into existing Supabase tables (`public.sam_notices`, `public.sam_ingest_runs`), and exposes a small query path filtered by NAICS + set-aside (+ optional place-of-performance state).
+It downloads the official Contract Opportunities CSV, upserts matching Solicitation / Combined Synopsis / Presolicitation / Sources Sought notices (NAICS **541511** and set-aside **SBA** only) into existing Supabase tables (`public.sam_notices`, `public.sam_ingest_runs`), and exposes a small query path filtered by NAICS + set-aside (+ optional place-of-performance state).
 
 ## Legal source
 
@@ -25,7 +25,7 @@ Existing tables in the already-provisioned Supabase project (do not mash into `p
 - `public.sam_notices` — upsert on `notice_id`
 - `public.sam_ingest_runs` — one row per ingest, `source='csv'`
 
-Ingest writes notice types **o / k / p / r** only (skips award notices and other types):
+Ingest writes notice types **o / k / p / r** only, and only rows with `naics_code='541511'` and `set_aside_code='SBA'` (skips award notices, other types, other NAICS, and other set-asides). The rolling 90-day `posted_date` window is **query-only**; older matching 541511+SBA rows are still upserted:
 
 | Code | CSV `Type` |
 |------|------------|

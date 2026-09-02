@@ -165,3 +165,63 @@ def test_row_without_notice_id_is_skipped() -> None:
         collected_at=FIXED_COLLECTED,
     )
     assert notice is None
+
+
+def test_ingest_skips_non_541511_and_non_sba() -> None:
+    rows_read, notices = _parse(
+        [
+            csv_row(
+                notice_id="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                title="Wrong NAICS",
+                sol="NAICS-1",
+                posted="2026-08-28",
+                type_name="Solicitation",
+                naics="541512",
+                set_aside_code="SBA",
+            ),
+            csv_row(
+                notice_id="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                title="Wrong set-aside",
+                sol="SA-1",
+                posted="2026-08-28",
+                type_name="Solicitation",
+                naics="541511",
+                set_aside_code="HZC",
+            ),
+            csv_row(
+                notice_id="cccccccccccccccccccccccccccccccc",
+                title="Keep matching",
+                sol="KEEP-1",
+                posted="2026-08-28",
+                type_name="Solicitation",
+                naics="541511",
+                set_aside_code="SBA",
+            ),
+        ]
+    )
+    assert rows_read == 3
+    assert [n["notice_id"] for n in notices] == ["cccccccccccccccccccccccccccccccc"]
+
+
+def test_ingest_keeps_old_posted_date_for_541511_sba() -> None:
+    """90-day window is query-only; ingest still stores matching historical rows."""
+    rows_read, notices = _parse(
+        [
+            csv_row(
+                notice_id="dddddddddddddddddddddddddddddddd",
+                title="Old but matching",
+                sol="OLD-1",
+                posted="2024-01-15",
+                type_name="Presolicitation",
+                naics="541511",
+                set_aside_code="SBA",
+            ),
+        ]
+    )
+    assert rows_read == 1
+    assert len(notices) == 1
+    assert notices[0]["notice_id"] == "dddddddddddddddddddddddddddddddd"
+    assert notices[0]["notice_type"] == "p"
+    assert notices[0]["naics_code"] == "541511"
+    assert notices[0]["set_aside_code"] == "SBA"
+    assert notices[0]["posted_date"] == date(2024, 1, 15)
