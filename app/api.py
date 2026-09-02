@@ -4,25 +4,24 @@ from __future__ import annotations
 
 import logging
 import secrets
-from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 import psycopg
 
 from app.config import MissingEnvError, Settings
 from app.constants import DEFAULT_NAICS, DEFAULT_SET_ASIDE_CODE
-from app.query import query_notices
+from app.homepage import render_homepage
+from app.query import query_homepage_notices, query_notices
 from app.redact import exception_log_name, redact_db_error_text
 
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="federal-bid-match", version="0.1.0")
 
-HOMEPAGE_PATH = Path(__file__).resolve().parent / "static" / "index.html"
 ROOT_JSON = {
     "name": "federal-bid-match",
     "health": "/health",
@@ -45,11 +44,26 @@ def _wants_json(accept: str | None) -> bool:
     return "application/json" in value and "text/html" not in value
 
 
+def _homepage_sample_notices() -> list[dict[str, Any]]:
+    """Live 541511 SBA rows, or empty if the database is missing or fails."""
+    try:
+        return query_homepage_notices(settings=_settings())
+    except MissingEnvError:
+        return []
+    except (psycopg.Error, OSError) as exc:
+        log.warning(
+            "%s: %s",
+            exception_log_name(exc),
+            redact_db_error_text(str(exc)),
+        )
+        return []
+
+
 @app.get("/", response_model=None)
 def root(request: Request):
     if _wants_json(request.headers.get("accept")):
         return JSONResponse(ROOT_JSON)
-    return FileResponse(HOMEPAGE_PATH, media_type="text/html; charset=utf-8")
+    return HTMLResponse(render_homepage(_homepage_sample_notices()))
 
 
 @app.get("/health")

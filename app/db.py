@@ -215,6 +215,30 @@ WHERE rn = 1
 ORDER BY posted_date DESC NULLS LAST, collected_at DESC
 """
 
+# Public homepage samples only. No POC, no API fields.
+HOMEPAGE_SAMPLE_SQL = """
+WITH ranked AS (
+    SELECT
+        title,
+        posted_date,
+        collected_at,
+        official_notice_url,
+        ROW_NUMBER() OVER (
+            PARTITION BY COALESCE(NULLIF(solicitation_number, ''), notice_id)
+            ORDER BY posted_date DESC NULLS LAST, collected_at DESC
+        ) AS rn
+    FROM public.sam_notices
+    WHERE is_active IS TRUE
+      AND naics_code = %(naics_code)s
+      AND set_aside_code = %(set_aside_code)s
+)
+SELECT title, posted_date, official_notice_url
+FROM ranked
+WHERE rn = 1
+ORDER BY posted_date DESC NULLS LAST, collected_at DESC
+LIMIT 3
+"""
+
 
 def _bind_notice(notice: dict[str, Any]) -> dict[str, Any]:
     bound = dict(notice)
@@ -298,3 +322,26 @@ def fetch_customer_notices(
         cur.execute(CUSTOMER_QUERY_SQL, params)
         rows = list(cur.fetchall())
     return rows
+
+
+def fetch_homepage_notices(
+    conn: psycopg.Connection,
+    *,
+    naics_code: str,
+    set_aside_code: str,
+) -> list[dict[str, Any]]:
+    params = {
+        "naics_code": naics_code,
+        "set_aside_code": set_aside_code,
+    }
+    with conn.cursor() as cur:
+        cur.execute(HOMEPAGE_SAMPLE_SQL, params)
+        rows = list(cur.fetchall())
+    return [
+        {
+            "title": row["title"],
+            "posted_date": row["posted_date"],
+            "official_notice_url": row["official_notice_url"],
+        }
+        for row in rows
+    ]

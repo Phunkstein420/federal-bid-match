@@ -10,7 +10,7 @@ from typing import Any
 
 from app.config import MissingEnvError, Settings
 from app.constants import DEFAULT_NAICS, DEFAULT_SET_ASIDE_CODE, WINDOW_DAYS
-from app.db import connect, fetch_customer_notices
+from app.db import connect, fetch_customer_notices, fetch_homepage_notices
 
 
 def json_default(value: Any) -> Any:
@@ -38,6 +38,20 @@ def query_notices(
             set_aside_code=set_aside,
             pop_state=pop_state,
             window_days=WINDOW_DAYS,
+        )
+    finally:
+        conn.close()
+
+
+def query_homepage_notices(*, settings: Settings | None = None) -> list[dict[str, Any]]:
+    settings = settings or Settings.from_env()
+    database_url = settings.require_database_url()
+    conn = connect(database_url)
+    try:
+        return fetch_homepage_notices(
+            conn,
+            naics_code=DEFAULT_NAICS,
+            set_aside_code=DEFAULT_SET_ASIDE_CODE,
         )
     finally:
         conn.close()
